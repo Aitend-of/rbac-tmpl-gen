@@ -1,0 +1,40 @@
+openapi: 3.0.1
+info:
+  title: Accounts Service API
+  version: v0.1.0
+  description: |
+    Accounts Service provides:
+      1. IdP functionality (user sign up, user log in, password reset flow, etc...)
+      2. Users and Accounts REST API
+servers:
+  - url: /api/v1
+paths:
+  /accounts:
+    get:
+      description: returns list of accounts
+      operationId: getAccounts
+      responses:
+        '200':
+          description: no error
+          content:
+            application/json:
+              schema:
+                type: array
+                description: all accounts in the system
+                items:
+                  $ref: '#/components/schemas/account'
+        '403':
+          description: forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/errorResponse'
+      x-rbac-feature:
+        - accounts_reading
+        - accounts_modification
