@@ -1,11 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"io/ioutil"
 	"os"
 	"strings"
 
+	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/yaml.v2"
 )
 
@@ -69,6 +71,17 @@ func main() {
 
 	yaml.Unmarshal(inputSpec, &openAPISpec)
 
+	// Open DB and Prepare request
+	db, err := sql.Open("mysql", "root:rootpassword@tcp(127.0.0.1:3306)/rbac_template")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	stmt, err := db.Prepare("INSERT INTO features(feature_id, feature_name, feature_descr, service_name, endpoint_path, endpoint_method) VALUES(?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		panic(err.Error())
+	}
+
 	// Generate output YAML
 	serviceTmpl.ServiceName = openAPISpec.Info.Title // Service name
 
@@ -80,14 +93,29 @@ func main() {
 				endpoint[pathKey] = methodKey
 				endpoints = append(endpoints, endpoint)
 
-				serviceTmpl.Features = append(serviceTmpl.Features, Feature{
+				currFeature := Feature{
 					FeatureName: strings.ReplaceAll(feature, "_", " "),
 					ID:          feature,
 					Description: method.Description,
 					Endpoints:   endpoints,
-				})
+				}
+
+				serviceTmpl.Features = append(serviceTmpl.Features, currFeature)
+
+				// Write output YAML to DB features table
+				_, err := stmt.Exec(currFeature.ID, currFeature.FeatureName, currFeature.Description, serviceTmpl.ServiceName, pathKey, methodKey)
+				if err != nil {
+					panic(err.Error())
+				}
+
 			}
 		}
+	}
+
+	// Close DB
+	err = db.Close()
+	if err != nil {
+		panic(err.Error())
 	}
 
 	// Creating output file
